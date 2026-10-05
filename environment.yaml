@@ -1,0 +1,29 @@
+name: dawis
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - setuptools<81  # pytorch-lightning 2.0 imports pkg_resources
+  - numpy=2.2
+  - scipy=1.15
+  - pandas=2.3
+  - matplotlib=3.10
+  - seaborn=0.13
+  - h5py=3.11
+  - netcdf4=1.7
+  - pyfftw=0.15
+  - pyyaml
+  - tqdm
+  - joblib
+  - einops=0.8
+  - scikit-image
+  - ffmpeg
+  - pytest
+  - ipykernel
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu121
+      - torch==2.4.0
+      - torchvision==0.19.0
+      - pytorch-lightning==2.0.8
+      - wandb==0.17.7

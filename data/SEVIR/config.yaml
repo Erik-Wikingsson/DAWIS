@@ -1,0 +1,116 @@
+# SEVIR radar mosaics (Storm EVent ImageRy), low-resolution variant:
+#   $SEVIR_ROOT/sevir_lr/CATALOG.csv
+#   $SEVIR_ROOT/sevir_lr/data/vil/{2017,2018,2019}/*.h5   vil: (N, 128, 128, 25) uint8
+# 1 channel, 128x128, 25 frames at 10-minute cadence, non-periodic domain.
+schema_version: 1
+name: SEVIR
+source_class: data.SEVIR.source:SEVIRDataSource
+root: ${SEVIR_ROOT}
+default_variant: lr_vil
+
+defaults: &defaults
+  raw_dtype: float32
+  # Data is already in observation units; no unit conversion.
+  unit_factor: 1.0
+  unit_name: "VIL (encoded, 0-255)"
+  # Bounded radar domain: disables circular padding in the network.
+  periodic: [false, false]
+  # Default DataLoader settings (overridden by --n_workers). HDF5 reads are
+  # latency-bound, so many workers help; handles are reopened per worker.
+  dataloader_kwargs: {num_workers: 16, persistent_workers: true}
+
+  # Model-space standardization on top of `rescale_method` (see NORM_MODES in
+  # source.py). Set with --sevir_norm or $SEVIR_NORM:
+  #   01        vil/255
+  #   flowdas   (vil/255 - 0.5) / 0.1   (FlowDAS/DAISI; uint8 range -> [-5, 5])
+  #   standard  (vil - 33.44) / 47.54   (zero-mean/unit-std; recommended for FMW)
+  norm_mode: ${SEVIR_NORM:-01}
+
+  # `normalized`: assimilation state, observations, --obs_sigma and --init_std
+  # are in model (norm_mode) units, as are RMSE and saved .nc files.
+  # `physical`: raw VIL counts.
+  assim_space: ${SEVIR_ASSIM_SPACE:-normalized}
+
+  # Seeded random train/val partition of the pre-test pool (as in FlowDAS).
+  val_ratio: 0.1
+  split_seed: 0
+
+  # Assimilation events: --data_index indexes a seeded random sample of the
+  # split (index 0 = tuning, 1-10 = held out). `size: 0` disables sampling.
+  assim_sample:
+    size: ${SEVIR_ASSIM_SIZE:-11}
+    seed: ${SEVIR_ASSIM_SEED:-0}
+
+  # Raw-count mean/std for `norm_mode: standard` (published SEVIR statistics).
+  norm_mean: 33.44
+  norm_std: 47.54
+
+variants:
+  lr_vil:
+    <<: *defaults
+    grid: [128, 128]
+    num_channels: 1
+    variables:
+      - {name: vil, units: "encoded", plot_range: [0.0, 255.0], cmap: "sevir:vil"}
+    catalog: ${root}/sevir_lr/CATALOG.csv
+    data_dir: ${root}/sevir_lr/data
+    data_types: [vil]
+    raw_seq_len: 25
+    # Longest window available: one full event.
+    max_window: 25
+    cadence_hours: 0.16666666666666666   # 10 minutes
+    pixel_size_m: 3000                   # 384 km / 128
+    # Upstream rescaling to [0, 1] (vil/255).
+    rescale_method: "01"
+    # FlowDAS split: train/val share the pre-2019-06-01 pool and are separated
+    # by a seeded permutation of events (`random_part`); test is after.
+    splits:
+      train: {start: null,         end: [2019, 6, 1], random_part: train}
+      val:   {start: null,         end: [2019, 6, 1], random_part: val}
+      test:  {start: [2019, 6, 1], end: null}
+    # No numerical dynamics, so LETKF needs a learned propagator.
+    supports: [single_state, forecast_window, assim_trajectory]
+
+  # 64x64, spatially downsampled 2x from lr_vil.
+  lr_vil_64:
+    <<: *defaults
+    grid: [64, 64]
+    num_channels: 1
+    variables:
+      - {name: vil, units: "encoded", plot_range: [0.0, 255.0], cmap: "sevir:vil"}
+    catalog: ${root}/sevir_lr/CATALOG.csv
+    data_dir: ${root}/sevir_lr/data
+    data_types: [vil]
+    raw_seq_len: 25
+    max_window: 25
+    cadence_hours: 0.16666666666666666   # 10 minutes
+    # (t, h, w) downsampling factors.
+    downsample: [1, 2, 2]
+    pixel_size_m: 6000                   # 384 km / 64
+    rescale_method: "01"
+    splits:
+      train: {start: null,         end: [2019, 6, 1], random_part: train}
+      val:   {start: null,         end: [2019, 6, 1], random_part: val}
+      test:  {start: [2019, 6, 1], end: null}
+    supports: [single_state, forecast_window, assim_trajectory]
+
+  # Full-resolution 384x384 / 49-frame / 5-minute dataset; not available.
+  hr_vil:
+    <<: *defaults
+    available: false
+    grid: [384, 384]
+    num_channels: 1
+    variables:
+      - {name: vil, units: "encoded", plot_range: [0.0, 255.0], cmap: "sevir:vil"}
+    catalog: ${root}/sevir/CATALOG.csv
+    data_dir: ${root}/sevir/data
+    data_types: [vil]
+    raw_seq_len: 49
+    max_window: 49
+    cadence_hours: 0.08333333333333333   # 5 minutes
+    rescale_method: "01"
+    splits:
+      train: {start: null,         end: [2019, 6, 1], random_part: train}
+      val:   {start: null,         end: [2019, 6, 1], random_part: val}
+      test:  {start: [2019, 6, 1], end: null}
+    supports: [single_state, forecast_window, assim_trajectory]
