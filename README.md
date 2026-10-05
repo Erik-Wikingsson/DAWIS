@@ -2,7 +2,7 @@
 
 [![arXiv](https://img.shields.io/badge/arXiv-2610.03314-b31b1b.svg)](https://arxiv.org/abs/2610.03314)
 
-<!-- TODO: add an overview figure, e.g. figures/DAWIS.png -->
+![Overview Figure](figures/DAWIS.png)
 
 Official code for **DAWIS: Data Assimilation with Windowed Inverse Sampling via Multitask Interpolants** ([paper](https://arxiv.org/abs/2610.03314)).
 
